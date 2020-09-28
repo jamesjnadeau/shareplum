@@ -103,6 +103,13 @@ class Soap:
 
         if "Where" in pyquery:
             Query.append(pyquery["Where"])
+    
+    def add_query_options(self, qoptions):
+        queryO = etree.SubElement(self.command, "{http://schemas.microsoft.com/sharepoint/soap/}queryOptions")
+        QueryO = etree.SubElement(queryO, "QueryOptions")
+        if 'paging' in qoptions:
+            paging = etree.SubElement(QueryO, "Paging")
+            paging.set('ListItemCollectionPositionNext', qoptions['paging'])
 
     def __repr__(self):  # type: () -> str
         return (self.start_str + etree.tostring(self.envelope)).decode("utf-8")

@@ -66,6 +66,9 @@ class _List2007:
         title_type = self._sp_cols["Title"]["type"]
         self._disp_cols[title_col] = {"name": "Title", "type": title_type}
         self.last_request = None  # type: Optional[str]
+        self._paging = None # String
+        self._last_request = None  # type: Soap request
+        self._current_viewfields = None # type: list
         self.date_format = re.compile("[0-9]+-[0-9]+-[0-9]+ [0-9]+:[0-9]+:[0-9]+")
 
     def _headers(self, soapaction):
@@ -187,12 +190,12 @@ class _List2007:
         view_name=None,  # type: Optional[str]
         fields=None,  # type: Optional[List[str]]
         query=None,  # type: Optional[Dict]
-        row_limit=0,  # type: int
+        row_limit=5000,  # type: int
         debug=False,  # type: bool
     ):
         # type: (...) -> Optional[Any]
         """Get Items from current list
-           rowlimit defaulted to 0 (unlimited)
+           rowlimit defaulted to 5000, max default allowed
         """
 
         # Build Request
@@ -220,6 +223,8 @@ class _List2007:
         else:
             # No fields or views provided so get everything
             viewfields = [x for x in self._sp_cols]
+
+        self._current_viewfields = viewfields
 
         # Add query
         if query:
@@ -253,6 +258,10 @@ class _List2007:
 
         # Set Row Limit
         soap_request.add_parameter("rowLimit", str(row_limit))
+        return self.get_items_request(soap_request, debug)
+
+    def get_items_request(self, soap_request, debug):
+        self._last_request = soap_request
         self.last_request = str(soap_request)
 
         # Send Request
@@ -268,11 +277,15 @@ class _List2007:
         envelope = etree.fromstring(response.text.encode("utf-8"),
                                     parser=etree.XMLParser(huge_tree=self.huge_tree,
                                     recover=True))
+        
+        # Paging
+        self._paging = envelope[0][0][0][0][0].get('ListItemCollectionPositionNext')
+
         listitems = envelope[0][0][0][0][0]
         data = []
         for row in listitems:
             # Strip the 'ows_' from the beginning with key[4:]
-            data.append({key[4:]: value for (key, value) in row.items() if key[4:] in viewfields})
+            data.append({key[4:]: value for (key, value) in row.items() if key[4:] in self._current_viewfields})
 
         self._convert_to_display(data)
 
@@ -280,6 +293,20 @@ class _List2007:
             return response
         else:
             return data
+
+    # see here for api docs: https://docs.microsoft.com/en-us/previous-versions/office/developer/sharepoint-2010/bb263567(v=office.14)#remarks
+    def get_next_page(self, debug=False):
+        display(self._paging)
+        if self._paging == None:
+            return False
+
+        # we have pating data to work with, add to last request
+        soap_request = self._last_request
+        soap_request.add_query_options({
+            'paging': self._paging
+        })
+
+        return self.get_items_request(soap_request, debug)
 
     def get_list(self):  # type: () -> None
         """Get Info on Current List
@@ -498,6 +525,7 @@ class _List2007:
     # Legacy API
     GetList = get_list
     GetListItems = get_list_items
+    GetNextPage = get_next_page
     GetView = get_view
     GetViewCollection = get_view_collection
     GetAttachmentCollection = get_attachment_collection
