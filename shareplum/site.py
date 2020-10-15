@@ -47,6 +47,7 @@ class _Site2007:
                         read=5,
                         connect=5,
                         backoff_factor=0.3,
+                        method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],
                         status_forcelist=[500, 502, 503, 504])
 
         http_adaptor = requests.adapters.HTTPAdapter(max_retries=retry)
