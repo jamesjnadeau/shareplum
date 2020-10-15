@@ -13,7 +13,7 @@ class _Folder():
 
     @property
     def contextinfo(self):
-        response = post(self._session, self.site_url + "/_api/contextinfo")
+        response = post(self._session, self.site_url + "/_api/contextinfo", timeout=self.timeout)
         data = response.json()
         return data
 
